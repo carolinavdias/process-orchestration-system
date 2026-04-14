@@ -1,34 +1,27 @@
-CC = gcc
-CFLAGS = -Wall -Wextra -g -Iinclude
-LDFLAGS =
-
-SRC = src
-OBJ = obj
-BIN = bin
-
-CONTROLLER_SRC = $(SRC)/controller.c
-RUNNER_SRC = $(SRC)/runner.c
-
-CONTROLLER_OBJ = $(OBJ)/controller.o
-RUNNER_OBJ = $(OBJ)/runner.o
+CC = gcc 
+CFLAGS = -Wall -g -Iinclude 
+LDFLAGS = 
 
 all: folders controller runner
 
+controller: bin/controller
+
+runner: bin/runner
+
 folders:
-	mkdir -p $(SRC) include $(OBJ) $(BIN) tmp
+	@mkdir -p src include obj bin tmp
 
-controller: $(BIN)/controller
+bin/controller: obj/controller.o obj/utils.o
+	$(CC) $^ -o $@ $(LDFLAGS)
 
-runner: $(BIN)/runner
+bin/runner: obj/runner.o
+	$(CC) $^ -o $@ $(LDFLAGS)
 
-$(BIN)/controller: $(CONTROLLER_OBJ)
-	$(CC) $(LDFLAGS) $^ -o $@
-
-$(BIN)/runner: $(RUNNER_OBJ)
-	$(CC) $(LDFLAGS) $^ -o $@
-
-$(OBJ)/%.o: $(SRC)/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+obj/%.o: src/%.c
+	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm -f $(OBJ)/* $(BIN)/* tmp/*
+	rm -f obj/* tmp/* bin/*
+
+format:
+	clang-format -i src/*.c include/*.h
