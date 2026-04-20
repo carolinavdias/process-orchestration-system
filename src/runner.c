@@ -8,10 +8,6 @@
 #include "utils.h"
 
 // IMPLEMENTAR QUE DETETE OS SIMBOLOS >, 2>, < OU |
-// Garantir que o Runner imprime exatamente as etiquetas [runner] seguidas do estado: submitted, executing e finished
-// scripts
-
-// usa o PID como cmd_id (ja esta feito)
 
 
 /* constroi caminho do FIFO privado do runner */
