@@ -74,7 +74,6 @@ static void writeint(int fd, int val) {
     write(fd, buf, i);
 }
 
-// ---------------------------------------------------------------------------
 
 /* ------------------------------------------------------------------ */
 /*  Modo -e : executar um comando                                      */
@@ -97,7 +96,7 @@ static int mode_exec(int argc, char *argv[]) {
     int   user_id = atoi(argv[2]);
     int   cmd_id  = (int)my_pid;
 
-    /* --- 1. Criar FIFO privado --- */
+    /* 1. cria FIFO privado */
     char priv_fifo[128];
     private_fifo_path(priv_fifo, sizeof(priv_fifo), my_pid);
     if (!createFifo(priv_fifo)) {
@@ -105,7 +104,7 @@ static int mode_exec(int argc, char *argv[]) {
         return 1;
     }
 
-    /* --- 2. Construir mensagem MSG_EXEC --- */
+    /* 2. envia MSG_EXEC com user_id, cmd_id, cmd, args */
     Message msg;
     memset(&msg, 0, sizeof(msg));
     msg.type       = MSG_EXEC;
@@ -120,12 +119,12 @@ static int mode_exec(int argc, char *argv[]) {
         strncpy(msg.args[i], argv[3 + i], MAX_ARG_LEN - 1);
     }
 
-    /* --- 3. Notificar utilizador: submetido (ANTES de enviar ao controller) --- */
+    /* 3. notifica utilizador: submetido (ANTES de enviar ao controller) */
     writestr(1, "[runner] command ");
     writeint(1, cmd_id);
     writestr(1, " submitted\n");
 
-    /* --- 4. Enviar pedido ao controller --- */
+    /* 4. envia pedido ao controller */
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
         writestr(2, "[runner] nao foi possivel conectar ao controller\n");
@@ -135,14 +134,14 @@ static int mode_exec(int argc, char *argv[]) {
     write(fd_ctrl, &msg, sizeof(msg));
     close(fd_ctrl);
 
-    /* --- 5. Aguardar autorização (bloqueia aqui) --- */
+    /* 5. aguarda autorização (bloqueia aqui) */
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv < 0) {
         writestr(2, "[runner] erro ao abrir FIFO privado\n");
         unlink(priv_fifo);
         return 1;
     }
-    int auth = 0;
+    int auth = 0; /* autorização do controller para executar */
     read(fd_priv, &auth, sizeof(int));
     close(fd_priv);
 
@@ -152,12 +151,12 @@ static int mode_exec(int argc, char *argv[]) {
         return 1;
     }
 
-    /* --- 6. Notificar utilizador: em execução --- */
+    /* 6. notifica utilizador: em execução */
     writestr(1, "[runner] executing command ");
     writeint(1, cmd_id);
     writestr(1, "...\n");
 
-    /* --- 7. fork + execvp --- */
+    /* 7. fork + execvp */
     pid_t child = fork();
     if (child < 0) {
         writestr(2, "[runner] erro no fork\n");
@@ -177,7 +176,7 @@ static int mode_exec(int argc, char *argv[]) {
 
     waitpid(child, NULL, 0);
 
-    /* --- 8. Notificar controller: terminado --- */
+    /* 8. envia MSG_DONE quando o comando termina */
     Message done;
     memset(&done, 0, sizeof(done));
     done.type       = MSG_DONE;
@@ -191,7 +190,7 @@ static int mode_exec(int argc, char *argv[]) {
         close(fd_ctrl);
     }
 
-    /* --- 9. Notificar utilizador: terminado --- */
+    /* 9. notifica utilizador: terminado */
     writestr(1, "[runner] command ");
     writeint(1, cmd_id);
     writestr(1, " finished\n");
@@ -203,6 +202,7 @@ static int mode_exec(int argc, char *argv[]) {
 /* ------------------------------------------------------------------ */
 /*  Modo -c : consultar comandos                                       */
 /* ------------------------------------------------------------------ */
+/* recebe string com a lista de comandos */
 static int mode_status(void) {
     pid_t my_pid = getpid();
 
@@ -213,10 +213,10 @@ static int mode_status(void) {
         return 1;
     }
 
-    /* Enviar pedido de status */
+    /* envia pedido de status */
     Message msg;
     memset(&msg, 0, sizeof(msg));
-    msg.type       = MSG_STATUS;
+    msg.type       = MSG_STATUS; /* envia MSG_STATUS */
     msg.runner_pid = my_pid;
 
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
@@ -228,7 +228,7 @@ static int mode_status(void) {
     write(fd_ctrl, &msg, sizeof(msg));
     close(fd_ctrl);
 
-    /* Receber e imprimir resposta */
+    /* recebe e imprime resposta */
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv < 0) {
         writestr(2, "[runner] erro ao abrir FIFO privado\n");
@@ -252,6 +252,7 @@ static int mode_status(void) {
 static int mode_shutdown(void) {
     pid_t my_pid = getpid();
 
+    /* cria FIFO privado para receber respostas do controller */
     char priv_fifo[128];
     private_fifo_path(priv_fifo, sizeof(priv_fifo), my_pid);
     if (!createFifo(priv_fifo)) {
@@ -261,9 +262,10 @@ static int mode_shutdown(void) {
 
     Message msg;
     memset(&msg, 0, sizeof(msg));
-    msg.type       = MSG_SHUTDOWN;
+    msg.type       = MSG_SHUTDOWN; /* envia MSG_SHUTDOWN */
     msg.runner_pid = my_pid;
 
+    /* abre o FIFO do controller para enviar mensagens */
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
         writestr(2, "[runner] nao foi possivel conectar ao controller\n");
@@ -276,10 +278,10 @@ static int mode_shutdown(void) {
     writestr(1, "[runner] sent shutdown notification\n");
     writestr(1, "[runner] waiting for controller to shutdown...\n");
 
-    /* Aguardar confirmação do controller no FIFO privado */
+    /*aguarda confirmação do controller no FIFO privado */
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv >= 0) {
-        int ack = 0;
+        int ack = 0; /* recebe int ack de confirmação */
         read(fd_priv, &ack, sizeof(int));
         close(fd_priv);
     }
