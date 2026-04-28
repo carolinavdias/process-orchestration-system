@@ -1,6 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <sys/types.h>
+
 #define CONTROLLER_FIFO "/tmp/controller_fifo"
 
 int createFifo(const char* path);

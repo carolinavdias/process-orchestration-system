@@ -3,6 +3,25 @@
 #include <string.h>
 #include <unistd.h>
 
+/* divide uma string em tokens por espaço */
+char **tokenize(const char *str, int *argc_out) {
+    static char buf[1024];
+    static char *tokens[MAX_ARGS + 1];
+    int n = 0;
+
+    strncpy(buf, str, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+
+    char *tok = strtok(buf, " ");
+    while (tok != NULL && n < MAX_ARGS) {
+        tokens[n++] = tok;
+        tok = strtok(NULL, " ");
+    }
+    tokens[n] = NULL;
+    *argc_out = n;
+    return tokens;
+}
+
 Pipeline *parse_pipeline(char **argv, int argc) {
     Pipeline *p = malloc(sizeof(Pipeline));
     p->num_commands = 1;
