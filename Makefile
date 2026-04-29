@@ -13,8 +13,8 @@ folders:
 bin/controller: obj/controller.o obj/scheduler.o obj/policy.o obj/queue.o obj/utils.o
 	$(CC) $(LDFLAGS) $^ -o $@
 
-bin/runner: obj/runner.o obj/utils.o
-	$(CC) $(LDFLAGS) $^ -o $@
+bin/runner: obj/runner.o obj/utils.o obj/parser.o obj/executor.o
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 obj/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
