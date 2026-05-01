@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <stdio.h> 
+#include <errno.h>
 
 #include "utils.h"
 
@@ -29,13 +30,6 @@ static void writeint(int fd, int val) {
 /*  Modo -e : executar um comando                                      */
 /* ------------------------------------------------------------------ */
 static int mode_exec(int argc, char *argv[]) {
-    /*
-     * argv layout:
-     *   argv[0] = "./runner"
-     *   argv[1] = "-e"
-     *   argv[2] = "<user-id>"
-     *   argv[3] = "<command> [args...]" (string única entre aspas)
-     */
     if (argc != 4) {
         writestr(2, "[runner] uso: ./runner -e <user-id> \"<command> [args...]\"\n");
         return 1;
@@ -84,15 +78,25 @@ static int mode_exec(int argc, char *argv[]) {
         unlink(priv_fifo);
         return 1;
     }
+
     Response resp;
+    // Primeira leitura: o controller envia RESP_SUBMITTED primeiro
     read(fd_priv, &resp, sizeof(Response));
-    close(fd_priv);
+
+    if (resp.type == RESP_SUBMITTED) {
+        // Se foi apenas submetido, lemos a PRÓXIMA que será o RESP_RUN (quando houver slot)
+        read(fd_priv, &resp, sizeof(Response));
+    }
 
     if (resp.type != RESP_RUN) {
         writestr(2, "[runner] autorizacao recusada pelo controller\n");
+        close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
+
+    // Fechamos o FIFO privado após receber a autorização
+    close(fd_priv);
 
     /* 6. notifica utilizador: em execução */
     writestr(1, "[runner] executing command ");
@@ -108,16 +112,18 @@ static int mode_exec(int argc, char *argv[]) {
     }
 
     if (child == 0) {
-        /* processo filho — executa o comando */
-        char *exec_argv[3];
+        /* processo filho — executa o comando via shell para suportar pipes/redirecionamentos */
+        char *exec_argv[4];
         exec_argv[0] = "/bin/sh";
-        exec_argv[1] = argv[3];
-        exec_argv[2] = NULL;
+        exec_argv[1] = "-c";
+        exec_argv[2] = argv[3];
+        exec_argv[3] = NULL;
         execvp(exec_argv[0], exec_argv);
         writestr(2, "[runner] erro ao executar comando\n");
         _exit(1);
     }
 
+    // Espera que o comando termine
     waitpid(child, NULL, 0);
 
     /* 8. envia MSG_DONE ao controller */
@@ -148,9 +154,9 @@ static int mode_exec(int argc, char *argv[]) {
 /* ------------------------------------------------------------------ */
 static int mode_status(void) {
     pid_t my_pid = getpid();
-
     char priv_fifo[RUNNER_FIFO_LEN];
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
+    
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
@@ -177,7 +183,6 @@ static int mode_status(void) {
         return 1;
     }
 
-    /* recebe Response e imprime o body */
     Response resp;
     memset(&resp, 0, sizeof(resp));
     read(fd_priv, &resp, sizeof(Response));
@@ -193,9 +198,9 @@ static int mode_status(void) {
 /* ------------------------------------------------------------------ */
 static int mode_shutdown(void) {
     pid_t my_pid = getpid();
-
     char priv_fifo[RUNNER_FIFO_LEN];
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
+    
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
@@ -218,7 +223,6 @@ static int mode_shutdown(void) {
     writestr(1, "[runner] sent shutdown notification\n");
     writestr(1, "[runner] waiting for controller to shutdown...\n");
 
-    /* aguarda confirmação do controller */
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv >= 0) {
         Response resp;
