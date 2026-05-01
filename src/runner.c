@@ -1,39 +1,19 @@
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <stdio.h> 
 
 #include "utils.h"
-#include "parser.h"
-#include "executor.h"
 
-/* constroi caminho do FIFO privado do runner */
-static void private_fifo_path(char *buf, size_t size, pid_t pid) {
-    int i = 0;
-    const char *prefix = "/tmp/runner_";
-    while (*prefix) buf[i++] = *prefix++;
-
-    char tmp[32];
-    int n = 0;
-    pid_t p = pid;
-
-    if (p == 0) tmp[n++] = '0';
-    while (p > 0) { tmp[n++] = '0' + (p % 10); p /= 10; }
-
-    for (int a = 0, b = n-1; a < b; a++, b--) {
-        char c = tmp[a]; tmp[a] = tmp[b]; tmp[b] = c;
-    }
-    for (int j = 0; j < n && i < (int)size - 1; j++) buf[i++] = tmp[j];
-    buf[i] = '\0';
-}
-
+/* escreve uma string no fd */
 static void writestr(int fd, const char *s) {
     write(fd, s, strlen(s));
 }
 
+/* converte int para string e escreve no fd */
 static void writeint(int fd, int val) {
     char buf[32];
     int i = 0;
@@ -50,59 +30,44 @@ static void writeint(int fd, int val) {
 /* ------------------------------------------------------------------ */
 static int mode_exec(int argc, char *argv[]) {
     /*
-     * argv layout (novo enunciado):
+     * argv layout:
      *   argv[0] = "./runner"
      *   argv[1] = "-e"
      *   argv[2] = "<user-id>"
-     *   argv[3] = "<command> <arg1> ..." (string única entre aspas)
+     *   argv[3] = "<command> [args...]" (string única entre aspas)
      */
     if (argc != 4) {
         writestr(2, "[runner] uso: ./runner -e <user-id> \"<command> [args...]\"\n");
         return 1;
     }
 
-    pid_t my_pid = getpid();
+    pid_t my_pid  = getpid();
     int   user_id = atoi(argv[2]);
     int   cmd_id  = (int)my_pid;
 
     /* 1. cria FIFO privado */
-    char priv_fifo[128];
-    private_fifo_path(priv_fifo, sizeof(priv_fifo), my_pid);
+    char priv_fifo[RUNNER_FIFO_LEN];
+    snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
     }
 
-    /* 2. tokeniza a string do comando */
-    int tok_argc = 0;
-    char **tokens = tokenize(argv[3], &tok_argc);
-    if (tok_argc == 0) {
-        writestr(2, "[runner] comando vazio\n");
-        unlink(priv_fifo);
-        return 1;
-    }
-
-    /* 3. constroi mensagem para o controller */
+    /* 2. constroi mensagem MSG_EXEC */
     Message msg;
     memset(&msg, 0, sizeof(msg));
     msg.type       = MSG_EXEC;
     msg.runner_pid = my_pid;
     msg.user_id    = user_id;
     msg.cmd_id     = cmd_id;
+    strncpy(msg.cmd, argv[3], MAX_CMD_LEN - 1);
 
-    /* guarda o comando completo (string original) */
-    strncpy(msg.cmd, argv[3], sizeof(msg.cmd) - 1);
-    msg.argc = tok_argc;
-    for (int i = 0; i < tok_argc && i < MAX_ARGS; i++) {
-        strncpy(msg.args[i], tokens[i], MAX_ARG_LEN - 1);
-    }
-
-    /* 4. notifica utilizador: submetido */
+    /* 3. notifica utilizador: submetido */
     writestr(1, "[runner] command ");
     writeint(1, cmd_id);
     writestr(1, " submitted\n");
 
-    /* 5. envia pedido ao controller */
+    /* 4. envia pedido ao controller */
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
         writestr(2, "[runner] nao foi possivel conectar ao controller\n");
@@ -112,34 +77,50 @@ static int mode_exec(int argc, char *argv[]) {
     write(fd_ctrl, &msg, sizeof(msg));
     close(fd_ctrl);
 
-    /* 6. aguarda autorização */
+    /* 5. aguarda resposta do controller */
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv < 0) {
         writestr(2, "[runner] erro ao abrir FIFO privado\n");
         unlink(priv_fifo);
         return 1;
     }
-    int auth = 0;
-    read(fd_priv, &auth, sizeof(int));
+    Response resp;
+    read(fd_priv, &resp, sizeof(Response));
     close(fd_priv);
 
-    if (auth != 1) {
+    if (resp.type != RESP_RUN) {
         writestr(2, "[runner] autorizacao recusada pelo controller\n");
         unlink(priv_fifo);
         return 1;
     }
 
-    /* 7. notifica utilizador: em execução */
+    /* 6. notifica utilizador: em execução */
     writestr(1, "[runner] executing command ");
     writeint(1, cmd_id);
     writestr(1, "...\n");
 
-    /* 8. parse + execute pipeline (suporte a |, >, 2>, <) */
-    Pipeline *p = parse_pipeline(tokens, tok_argc);
-    execute_pipeline(p);
-    free_pipeline(p);
+    /* 7. fork + execvp */
+    pid_t child = fork();
+    if (child < 0) {
+        writestr(2, "[runner] erro no fork\n");
+        unlink(priv_fifo);
+        return 1;
+    }
 
-    /* 9. envia MSG_DONE ao controller */
+    if (child == 0) {
+        /* processo filho — executa o comando */
+        char *exec_argv[3];
+        exec_argv[0] = "/bin/sh";
+        exec_argv[1] = argv[3];
+        exec_argv[2] = NULL;
+        execvp(exec_argv[0], exec_argv);
+        writestr(2, "[runner] erro ao executar comando\n");
+        _exit(1);
+    }
+
+    waitpid(child, NULL, 0);
+
+    /* 8. envia MSG_DONE ao controller */
     Message done;
     memset(&done, 0, sizeof(done));
     done.type       = MSG_DONE;
@@ -153,7 +134,7 @@ static int mode_exec(int argc, char *argv[]) {
         close(fd_ctrl);
     }
 
-    /* 10. notifica utilizador: terminado */
+    /* 9. notifica utilizador: terminado */
     writestr(1, "[runner] command ");
     writeint(1, cmd_id);
     writestr(1, " finished\n");
@@ -168,8 +149,8 @@ static int mode_exec(int argc, char *argv[]) {
 static int mode_status(void) {
     pid_t my_pid = getpid();
 
-    char priv_fifo[128];
-    private_fifo_path(priv_fifo, sizeof(priv_fifo), my_pid);
+    char priv_fifo[RUNNER_FIFO_LEN];
+    snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
@@ -196,11 +177,12 @@ static int mode_status(void) {
         return 1;
     }
 
-    char buf[4096];
-    ssize_t n;
-    while ((n = read(fd_priv, buf, sizeof(buf))) > 0) {
-        write(1, buf, n);
-    }
+    /* recebe Response e imprime o body */
+    Response resp;
+    memset(&resp, 0, sizeof(resp));
+    read(fd_priv, &resp, sizeof(Response));
+    writestr(1, resp.body);
+
     close(fd_priv);
     unlink(priv_fifo);
     return 0;
@@ -212,8 +194,8 @@ static int mode_status(void) {
 static int mode_shutdown(void) {
     pid_t my_pid = getpid();
 
-    char priv_fifo[128];
-    private_fifo_path(priv_fifo, sizeof(priv_fifo), my_pid);
+    char priv_fifo[RUNNER_FIFO_LEN];
+    snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
@@ -236,10 +218,12 @@ static int mode_shutdown(void) {
     writestr(1, "[runner] sent shutdown notification\n");
     writestr(1, "[runner] waiting for controller to shutdown...\n");
 
+    /* aguarda confirmação do controller */
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv >= 0) {
-        int ack = 0;
-        read(fd_priv, &ack, sizeof(int));
+        Response resp;
+        memset(&resp, 0, sizeof(resp));
+        read(fd_priv, &resp, sizeof(Response));
         close(fd_priv);
     }
 

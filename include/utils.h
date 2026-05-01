@@ -9,6 +9,8 @@
  
 #define MAX_CMD_LEN  256
 #define MAX_QUEUE    100
+#define MAX_ARGS     32
+#define MAX_ARG_LEN  64
 
 typedef enum {
     MSG_EXEC     = 1,
