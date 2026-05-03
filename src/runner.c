@@ -105,28 +105,14 @@ static int mode_exec(int argc, char *argv[]) {
     writeint(1, cmd_id);
     writestr(1, "...\n");
 
-    /* 7. fork + execvp */
-    pid_t child = fork();
-    if (child < 0) {
-        writestr(2, "[runner] erro no fork\n");
-        unlink(priv_fifo);
-        return 1;
+    /* 7. tokeniza o comando e executa a pipeline completa */
+    int tok_argc = 0;
+    char **tokens = tokenize(argv[3], &tok_argc);
+    if (tok_argc > 0) {
+        Pipeline *p = parse_pipeline(tokens, tok_argc);
+        execute_pipeline(p);
+        free_pipeline(p);
     }
-
-    if (child == 0) {
-        /* processo filho — executa o comando via shell para suportar pipes/redirecionamentos */
-        char *exec_argv[4];
-        exec_argv[0] = "/bin/sh";
-        exec_argv[1] = "-c";
-        exec_argv[2] = argv[3];
-        exec_argv[3] = NULL;
-        execvp(exec_argv[0], exec_argv);
-        writestr(2, "[runner] erro ao executar comando\n");
-        _exit(1);
-    }
-
-    // Espera que o comando termine
-    waitpid(child, NULL, 0);
 
     /* 8. envia MSG_DONE ao controller */
     Message done;
