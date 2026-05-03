@@ -4,8 +4,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <string.h>
-#include <stdio.h> 
-#include <errno.h>
+#include <stdio.h>
 
 #include "utils.h"
 #include "parser.h"
@@ -29,7 +28,7 @@ static void writeint(int fd, int val) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Modo -e : executar um comando                                      */
+/*  modo -e : executar um comando                                      */
 /* ------------------------------------------------------------------ */
 static int mode_exec(int argc, char *argv[]) {
     if (argc != 4) {
@@ -49,7 +48,7 @@ static int mode_exec(int argc, char *argv[]) {
         return 1;
     }
 
-    /* 2. constroi mensagem MSG_EXEC */
+    /* 2. constrói mensagem MSG_EXEC */
     Message msg;
     memset(&msg, 0, sizeof(msg));
     msg.type       = MSG_EXEC;
@@ -66,7 +65,7 @@ static int mode_exec(int argc, char *argv[]) {
     /* 4. envia pedido ao controller */
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
-        writestr(2, "[runner] nao foi possivel conectar ao controller\n");
+        writestr(2, "[runner] não foi possível conectar ao controller\n");
         unlink(priv_fifo);
         return 1;
     }
@@ -86,20 +85,20 @@ static int mode_exec(int argc, char *argv[]) {
     read(fd_priv, &resp, sizeof(Response));
 
     if (resp.type == RESP_SUBMITTED) {
-        /* ficou na fila. fecha e reabre o FIFO para bloquear até o controller abrir do outro lado quando houver slot disponível */
+        /* ficou na fila — fecha e reabre o FIFO para bloquear até o controller ter slot disponível e enviar RESP_RUN */
         close(fd_priv);
         fd_priv = open(priv_fifo, O_RDONLY);
         read(fd_priv, &resp, sizeof(Response));
     }
 
     if (resp.type != RESP_RUN) {
-        writestr(2, "[runner] autorizacao recusada pelo controller\n");
+        writestr(2, "[runner] autorização recusada pelo controller\n");
         close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
 
-    // Fechamos o FIFO privado após receber a autorização
+    /* fecha o FIFO privado após receber a autorização */
     close(fd_priv);
 
     /* 6. notifica utilizador: em execução */
@@ -140,13 +139,13 @@ static int mode_exec(int argc, char *argv[]) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Modo -c : consultar comandos                                       */
+/*  modo -c : consultar comandos                                       */
 /* ------------------------------------------------------------------ */
 static int mode_status(void) {
     pid_t my_pid = getpid();
     char priv_fifo[RUNNER_FIFO_LEN];
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
-    
+
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
@@ -159,7 +158,7 @@ static int mode_status(void) {
 
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
-        writestr(2, "[runner] nao foi possivel conectar ao controller\n");
+        writestr(2, "[runner] não foi possível conectar ao controller\n");
         unlink(priv_fifo);
         return 1;
     }
@@ -184,13 +183,13 @@ static int mode_status(void) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Modo -s : pedir shutdown ao controller                            */
+/*  modo -s : pedir shutdown ao controller                            */
 /* ------------------------------------------------------------------ */
 static int mode_shutdown(void) {
     pid_t my_pid = getpid();
     char priv_fifo[RUNNER_FIFO_LEN];
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
-    
+
     if (!createFifo(priv_fifo)) {
         writestr(2, "[runner] erro ao criar FIFO privado\n");
         return 1;
@@ -203,7 +202,7 @@ static int mode_shutdown(void) {
 
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
-        writestr(2, "[runner] nao foi possivel conectar ao controller\n");
+        writestr(2, "[runner] não foi possível conectar ao controller\n");
         unlink(priv_fifo);
         return 1;
     }
@@ -217,7 +216,14 @@ static int mode_shutdown(void) {
     if (fd_priv >= 0) {
         Response resp;
         memset(&resp, 0, sizeof(resp));
-        read(fd_priv, &resp, sizeof(Response));
+        read(fd_priv, &resp, sizeof(resp));
+
+        if (resp.type == RESP_SHUTSUBM) {
+            /* ainda há comandos na fila; fecha e reabre para esperar RESP_SHUTDOWN */
+            close(fd_priv);
+            fd_priv = open(priv_fifo, O_RDONLY);
+            read(fd_priv, &resp, sizeof(resp));
+        }
         close(fd_priv);
     }
 
@@ -241,7 +247,7 @@ int main(int argc, char *argv[]) {
     else if (strcmp(argv[1], "-c") == 0) return mode_status();
     else if (strcmp(argv[1], "-s") == 0) return mode_shutdown();
     else {
-        writestr(2, "[runner] opcao invalida\n");
+        writestr(2, "[runner] opção inválida\n");
         return 1;
     }
 }

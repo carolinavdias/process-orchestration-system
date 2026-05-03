@@ -131,7 +131,7 @@ int controller(int fd)
                 write(1, buf, n);
 
                 /* registo persistente */
-                int lfd = open("controller/commands.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+                int lfd = open("logs/commands.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
                 if (lfd != -1)
                 {
                     char log[128];
