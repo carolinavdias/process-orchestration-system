@@ -82,11 +82,13 @@ static int mode_exec(int argc, char *argv[]) {
     }
 
     Response resp;
-    // Primeira leitura: o controller envia RESP_SUBMITTED primeiro
+    /* primeira leitura — pode ser RESP_SUBMITTED ou RESP_RUN direto */
     read(fd_priv, &resp, sizeof(Response));
 
     if (resp.type == RESP_SUBMITTED) {
-        // Se foi apenas submetido, lemos a PRÓXIMA que será o RESP_RUN (quando houver slot)
+        /* ficou na fila. fecha e reabre o FIFO para bloquear até o controller abrir do outro lado quando houver slot disponível */
+        close(fd_priv);
+        fd_priv = open(priv_fifo, O_RDONLY);
         read(fd_priv, &resp, sizeof(Response));
     }
 

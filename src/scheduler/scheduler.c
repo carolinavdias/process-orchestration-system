@@ -9,13 +9,11 @@ static UserQueue *users         = NULL;
 static UserQueue *rr_cursor     = NULL;
 static int        running_count = 0;
 static int        max_parallel  = 1;
-static int        next_cmd_id   = 1;
 static char       policy[32]    = "fcfs";
 
 void scheduler_init(int mp, const char *sp) {
     max_parallel  = mp;
     running_count = 0;
-    next_cmd_id   = 1;
     users         = NULL;
     rr_cursor     = NULL;
     strncpy(policy, sp, sizeof(policy) - 1);
@@ -25,7 +23,7 @@ int scheduler_enqueue(Message *msg) {
     CmdNode *node = malloc(sizeof(CmdNode));
     if (node == NULL) return -1;
 
-    msg->cmd_id       = next_cmd_id++;
+    /* usa o cmd_id original do runner (o seu PID) — já é único no sistema */
     node->msg         = *msg;
     node->state       = CMD_WAITING;
     node->next        = NULL;
