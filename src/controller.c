@@ -78,30 +78,41 @@ int controller(int fd)
                     break;
                 }
 
-                /* notifica o runner que o comando foi submetido */
+                /* verifica se há slot disponível imediatamente */
+                CmdNode *entry = scheduler_next();
+
                 char fifoS[RUNNER_FIFO_LEN];
                 snprintf(fifoS, sizeof(fifoS), RUNNER_FIFO_FMT, msg.runner_pid);
                 int o = open(fifoS, O_WRONLY);
                 if (o != -1)
                 {
                     Response resp = {0};
-                    resp.type = RESP_SUBMITTED;
-                    resp.cmd_id = cmd_id;
+                    if (entry != NULL && entry->msg.runner_pid == msg.runner_pid)
+                    {
+                        /* slot livre imediatamente para este runner — manda diretamente RESP_RUN */
+                        resp.type   = RESP_RUN;
+                        resp.cmd_id = cmd_id;
+                    }
+                    else
+                    {
+                        /* vai ter de esperar na fila — notifica que foi submetido */
+                        resp.type   = RESP_SUBMITTED;
+                        resp.cmd_id = cmd_id;
+                    }
                     write(o, &resp, sizeof(resp));
                     close(o);
                 }
 
-                /* tenta despachar — pode haver slot livre */
-                CmdNode *entry = scheduler_next();
-                if (entry != NULL)
+                /* se o slot foi para outro runner que não este, notifica esse */
+                if (entry != NULL && entry->msg.runner_pid != msg.runner_pid)
                 {
-                    char fifo[RUNNER_FIFO_LEN];
-                    snprintf(fifo, sizeof(fifo), RUNNER_FIFO_FMT, entry->msg.runner_pid);
-                    int rfd = open(fifo, O_WRONLY);
+                    char fifo2[RUNNER_FIFO_LEN];
+                    snprintf(fifo2, sizeof(fifo2), RUNNER_FIFO_FMT, entry->msg.runner_pid);
+                    int rfd = open(fifo2, O_WRONLY);
                     if (rfd != -1)
                     {
                         Response resp = {0};
-                        resp.type = RESP_RUN;
+                        resp.type   = RESP_RUN;
                         resp.cmd_id = entry->msg.cmd_id;
                         write(rfd, &resp, sizeof(resp));
                         close(rfd);
