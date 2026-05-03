@@ -8,6 +8,8 @@
 #include <errno.h>
 
 #include "utils.h"
+#include "parser.h"
+#include "executor.h"
 
 /* escreve uma string no fd */
 static void writestr(int fd, const char *s) {
