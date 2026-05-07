@@ -9,8 +9,7 @@
 int execute_pipeline(Pipeline *p) {
     int num = p->num_commands;
 
-    /* array de pipes: precisamos de (num-1) pipes */
-    int pipes[num - 1][2];
+    int pipes[num-1 <= 1 ? 1 : num-1][2];
     for (int i = 0; i < num - 1; i++) {
         if (pipe(pipes[i]) < 0) {
             write(2, "[executor] erro ao criar pipe\n", 30);

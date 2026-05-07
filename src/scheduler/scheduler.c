@@ -9,21 +9,69 @@ static UserQueue *users         = NULL;
 static UserQueue *rr_cursor     = NULL;
 static int        running_count = 0;
 static int        max_parallel  = 1;
-static char       policy[32]    = "fcfs";
+static int        next_cmd_id   = 1;
+static char       policy[32]    = "";
+
+static void free_user_if_empty(UserQueue *target) {
+    if (target == NULL || target->head != NULL)
+        return;
+
+    UserQueue *prev = NULL;
+    UserQueue *cur = users;
+    while (cur != NULL && cur != target) {
+        prev = cur;
+        cur = cur->next;
+    }
+
+    if (cur == NULL)
+        return;
+
+    if (prev == NULL)
+        users = cur->next;
+    else
+        prev->next = cur->next;
+
+    if (rr_cursor == cur)
+        rr_cursor = (cur->next != NULL) ? cur->next : users;
+
+    free(cur);
+}
 
 void scheduler_init(int mp, const char *sp) {
     max_parallel  = mp;
     running_count = 0;
+    next_cmd_id   = 1;
     users         = NULL;
     rr_cursor     = NULL;
     strncpy(policy, sp, sizeof(policy) - 1);
+}
+
+void scheduler_destroy(void) {
+    UserQueue *u = users;
+    while (u != NULL) {
+        UserQueue *next_user = u->next;
+        CmdNode *cur = u->head;
+
+        while (cur != NULL) {
+            CmdNode *next_cmd = cur->next;
+            free(cur);
+            cur = next_cmd;
+        }
+
+        free(u);
+        u = next_user;
+    }
+
+    users = NULL;
+    rr_cursor = NULL;
+    running_count = 0;
 }
 
 int scheduler_enqueue(Message *msg) {
     CmdNode *node = malloc(sizeof(CmdNode));
     if (node == NULL) return -1;
 
-    /* usa o cmd_id original do runner (o seu PID) — já é único no sistema */
+    msg->cmd_id       = next_cmd_id++;
     node->msg         = *msg;
     node->state       = CMD_WAITING;
     node->next        = NULL;
@@ -40,7 +88,7 @@ CmdNode *scheduler_next(void) {
         return NULL;
 
     CmdNode *node = NULL;
-    if (strcmp(policy, "rr") == 0)
+    if (strcmp(policy, "rr")==0)
         node = pick_rr(users, &rr_cursor);
     else
         node = pick_fcfs(users);
@@ -70,6 +118,7 @@ long scheduler_done(int cmd_id) {
             }
             node = node->next;
         }
+        free_user_if_empty(u);
         u = u->next;
     }
     return -1;
@@ -110,5 +159,34 @@ void scheduler_status(char *buf, size_t buf_len) {
 }
 
 int scheduler_empty(void) {
-    return queue_empty(users);
+    UserQueue *u = users;
+    while (u != NULL) {
+        CmdNode *cur = u->head;
+        while (cur != NULL) {
+            if (cur->state == CMD_RUNNING) return 0;
+            cur = cur->next;
+        }
+        u = u->next;
+    }
+    return 1;
+}
+
+pid_t scheduler_pop_waiting(int *cmd_id) {
+    UserQueue *u = users;
+    while (u != NULL) {
+        CmdNode *cur = u->head;
+        while (cur != NULL) {
+            if (cur->state == CMD_WAITING) {
+                pid_t pid = cur->msg.runner_pid;
+                *cmd_id   = cur->msg.cmd_id;
+                CmdNode *removed = remove_cmd(u, cur->msg.cmd_id);
+                free(removed);
+                return pid;
+            }
+            cur = cur->next;
+        }
+        free_user_if_empty(u);
+        u = u->next;
+    }
+    return -1;
 }

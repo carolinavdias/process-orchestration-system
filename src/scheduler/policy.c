@@ -22,22 +22,46 @@ CmdNode *pick_fcfs(UserQueue *users) {
 CmdNode *pick_rr(UserQueue *users, UserQueue **rr_cursor) {
     if (users == NULL) return NULL;
 
-    if (*rr_cursor == NULL)
-        *rr_cursor = users;
+    // 🔍 validar se rr_cursor ainda existe na lista
+    UserQueue *tmp = users;
+    int found = 0;
+    while (tmp != NULL) {
+        if (tmp == *rr_cursor) {
+            found = 1;
+            break;
+        }
+        tmp = tmp->next;
+    }
 
-    UserQueue *start = *rr_cursor;
+    // se inválido → reset
+    if (!found)
+        *rr_cursor = NULL;
+
+    UserQueue *start;
+
+    if (*rr_cursor == NULL) {
+        start = users;
+    } else {
+        start = ((*rr_cursor)->next != NULL) ? (*rr_cursor)->next : users;
+    }
+
+    UserQueue *cur_user = start;
 
     do {
-        CmdNode *cur = (*rr_cursor)->head;
+        CmdNode *cur = cur_user->head;
+
         while (cur != NULL) {
             if (cur->state == CMD_WAITING) {
-                *rr_cursor = ((*rr_cursor)->next != NULL) ? (*rr_cursor)->next : users;
+                *rr_cursor = cur_user;
                 return cur;
             }
             cur = cur->next;
         }
-        *rr_cursor = ((*rr_cursor)->next != NULL) ? (*rr_cursor)->next : users;
-    } while (*rr_cursor != start);
+
+        // próximo user
+        cur_user = (cur_user->next != NULL) ? cur_user->next : users;
+
+    } while (cur_user != start);
 
     return NULL;
 }

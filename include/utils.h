@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #define CONTROLLER_FIFO "/tmp/controller_fifo"
-#define RUNNER_FIFO_FMT  "/tmp/runner_fifo_%d"
+#define RUNNER_FIFO_FMT "/tmp/runner_fifo_%d"
 #define RUNNER_FIFO_LEN  64
  
 #define MAX_CMD_LEN  256

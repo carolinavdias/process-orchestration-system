@@ -3,17 +3,32 @@
 
 UserQueue *get_user(UserQueue **users, int user_id) {
     UserQueue *u = *users;
+
+    // procurar user existente
     while (u != NULL) {
         if (u->user_id == user_id)
             return u;
         u = u->next;
     }
 
+    // criar novo user
     UserQueue *new_user = malloc(sizeof(UserQueue));
+    if (!new_user) return NULL;
+
     new_user->user_id = user_id;
     new_user->head    = NULL;
-    new_user->next    = *users;
-    *users = new_user;
+    new_user->next    = NULL;
+
+    // inserir no fim
+    if (*users == NULL) {
+        *users = new_user;
+    } else {
+        UserQueue *cur = *users;
+        while (cur->next != NULL)
+            cur = cur->next;
+        cur->next = new_user;
+    }
+
     return new_user;
 }
 
