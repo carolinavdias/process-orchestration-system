@@ -1,0 +1,19 @@
+TESTES DE POLÍTICAS DE ESCALONAMENTO
+
+
+================================================
+  política: fcfs | paralelo: 1
+  Thu May  7 22:37:38 WEST 2026
+================================================
+[controller] started | policy=fcfs max_parallel=1
+[controller] waiting for runners...
+[controller] exec request from user=1 cmd='sleep 3'
+[controller] exec request from user=2 cmd='sleep 1'
+[controller] exec request from user=4 cmd='sleep 3'
+[controller] exec request from user=3 cmd='sleep 2'
+[controller] exec request from user=1 cmd='echo user1_segundo_comando'
+[controller] done cmd=1 duration=3009ms
+[controller] done cmd=2 duration=4013ms
+[controller] done cmd=3 duration=7018ms
+[controller] done cmd=4 duration=9023ms
+[controller] done cmd=5 duration=9033ms
