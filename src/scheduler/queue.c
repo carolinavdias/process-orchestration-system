@@ -2,14 +2,12 @@
 #include "queue.h"
 
 UserQueue *get_user(UserQueue **users, int user_id) {
-    // procura utilizador existente
     UserQueue *u = *users;
     while (u != NULL) {
         if (u->user_id == user_id) return u;
         u = u->next;
     }
 
-    // cria novo se não existir
     UserQueue *new_user = malloc(sizeof(UserQueue));
     if (!new_user) return NULL;
 
@@ -17,7 +15,6 @@ UserQueue *get_user(UserQueue **users, int user_id) {
     new_user->head    = NULL;
     new_user->next    = NULL;
 
-    // insere no fim da lista
     if (*users == NULL) {
         *users = new_user;
     } else {

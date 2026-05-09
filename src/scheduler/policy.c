@@ -23,7 +23,6 @@ CmdNode *pick_fcfs(UserQueue *users) {
 CmdNode *pick_rr(UserQueue *users, UserQueue **rr_cursor) {
     if (users == NULL) return NULL;
 
-    // valida se rr_cursor ainda está na lista
     UserQueue *tmp = users;
     int found = 0;
     while (tmp != NULL) {
@@ -31,7 +30,6 @@ CmdNode *pick_rr(UserQueue *users, UserQueue **rr_cursor) {
         tmp = tmp->next;
     }
 
-    // se inválido, recomeça do início
     if (!found) *rr_cursor = NULL;
 
     UserQueue *start = (*rr_cursor == NULL)
@@ -48,7 +46,6 @@ CmdNode *pick_rr(UserQueue *users, UserQueue **rr_cursor) {
             }
             cur = cur->next;
         }
-        // avança para o próximo utilizador
         cur_user = (cur_user->next != NULL) ? cur_user->next : users;
     } while (cur_user != start);
 

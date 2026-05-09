@@ -12,7 +12,6 @@ static int        max_parallel  = 1;
 static int        next_cmd_id   = 1;
 static char       policy[32]    = "";
 
-// remove utilizador da lista se já não tem comandos
 static void free_user_if_empty(UserQueue *target) {
     if (target == NULL || target->head != NULL)
         return;
@@ -73,7 +72,7 @@ int scheduler_enqueue(Message *msg) {
     node->msg   = *msg;
     node->state = CMD_WAITING;
     node->next  = NULL;
-    gettimeofday(&node->submit_time, NULL);  // timestamp de submissão
+    gettimeofday(&node->submit_time, NULL);  
 
     UserQueue *u = get_user(&users, msg->user_id);
     enqueue_cmd(u, node);
@@ -92,7 +91,7 @@ CmdNode *scheduler_next(void) {
     if (node == NULL) return NULL;
 
     node->state = CMD_RUNNING;
-    running_count++;  // ocupa slot
+    running_count++;  
     return node;
 }
 
@@ -154,7 +153,6 @@ void scheduler_status(char *buf, size_t buf_len) {
     snprintf(buf + pos, buf_len - pos, "---\n");
 }
 
-// verifica se há comandos em execução
 int scheduler_empty(void) {
     UserQueue *u = users;
     while (u != NULL) {
@@ -168,7 +166,6 @@ int scheduler_empty(void) {
     return 1;
 }
 
-// notifica runners em espera que o sistema vai fechar
 pid_t scheduler_pop_waiting(int *cmd_id) {
     UserQueue *u = users;
     while (u != NULL) {
