@@ -10,6 +10,7 @@
 #include "executor/executor.h"
 
 int mode_exec(int argc, char *argv[]) {
+    (void)argc;   
     pid_t my_pid  = getpid();
     int   user_id = atoi(argv[2]);
 
@@ -19,7 +20,8 @@ int mode_exec(int argc, char *argv[]) {
         write(2, "[runner] error creating private FIFO\n", 37);
         return 1;
     }
-
+    
+    // abre fifo privado para receber resposta do controller
     int fd_priv = open(priv_fifo, O_RDWR);
     if (fd_priv < 0) {
         write(2, "[runner] error opening private FIFO\n", 36);
@@ -59,6 +61,7 @@ int mode_exec(int argc, char *argv[]) {
         return 1;
     }
 
+    // protocolo de dois passos: submitted->run
     if (resp.type == RESP_SUBMITTED) {
         char buf[64];
         int n = snprintf(buf, sizeof(buf), "[runner] command %d submitted\n", resp.cmd_id);
@@ -79,6 +82,7 @@ int mode_exec(int argc, char *argv[]) {
     int n = snprintf(buf, sizeof(buf), "[runner] executing command %d...\n", resp.cmd_id);
     write(1, buf, n);
 
+    // executa e notifica conclusão
     int tok_argc = 0;
     char **tokens = tokenize(argv[3], &tok_argc);
     if (tok_argc > 0) {

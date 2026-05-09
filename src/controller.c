@@ -100,7 +100,7 @@ int controller(int fd){
                         close(o);
                     }
 
-                    /* tenta despachar — pode haver slot livre */
+                    /* tenta despachar, pode haver slot livre */
                     CmdNode *entry = scheduler_next();
                     if (entry != NULL) {
                         char fifo[RUNNER_FIFO_LEN];
@@ -136,7 +136,7 @@ int controller(int fd){
                         close(lfd);
                     }
 
-                    /* slot libertou — tenta despachar próximo */
+                    /* slot livre,tenta despachar próximo */
                     CmdNode *entry = scheduler_next();
                     if (entry != NULL) {
                         char fifo[RUNNER_FIFO_LEN];
