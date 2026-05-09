@@ -2,16 +2,14 @@
 #include "queue.h"
 
 UserQueue *get_user(UserQueue **users, int user_id) {
+    // procura utilizador existente
     UserQueue *u = *users;
-
-    // procurar user existente
     while (u != NULL) {
-        if (u->user_id == user_id)
-            return u;
+        if (u->user_id == user_id) return u;
         u = u->next;
     }
 
-    // criar novo user
+    // cria novo se não existir
     UserQueue *new_user = malloc(sizeof(UserQueue));
     if (!new_user) return NULL;
 
@@ -19,13 +17,12 @@ UserQueue *get_user(UserQueue **users, int user_id) {
     new_user->head    = NULL;
     new_user->next    = NULL;
 
-    // inserir no fim
+    // insere no fim da lista
     if (*users == NULL) {
         *users = new_user;
     } else {
         UserQueue *cur = *users;
-        while (cur->next != NULL)
-            cur = cur->next;
+        while (cur->next != NULL) cur = cur->next;
         cur->next = new_user;
     }
 
@@ -33,13 +30,9 @@ UserQueue *get_user(UserQueue **users, int user_id) {
 }
 
 void enqueue_cmd(UserQueue *u, CmdNode *node) {
-    if (u->head == NULL) {
-        u->head = node;
-        return;
-    }
+    if (u->head == NULL) { u->head = node; return; }
     CmdNode *cur = u->head;
-    while (cur->next != NULL)
-        cur = cur->next;
+    while (cur->next != NULL) cur = cur->next;
     cur->next = node;
 }
 
@@ -48,10 +41,8 @@ CmdNode *remove_cmd(UserQueue *u, int cmd_id) {
     CmdNode *cur  = u->head;
     while (cur != NULL) {
         if (cur->msg.cmd_id == cmd_id) {
-            if (prev == NULL)
-                u->head = cur->next;
-            else
-                prev->next = cur->next;
+            if (prev == NULL) u->head = cur->next;
+            else              prev->next = cur->next;
             cur->next = NULL;
             return cur;
         }
