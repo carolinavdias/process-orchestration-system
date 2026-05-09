@@ -21,7 +21,9 @@ static void notify_waiting_runners(void) {
             Response resp = {0};
             resp.type   = RESP_SHUTDOWN;
             resp.cmd_id = cmd_id;
-            write(rfd, &resp, sizeof(resp));
+            if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                perror("[controller] write response");
+            }
             close(rfd);
         }
     }
@@ -42,7 +44,9 @@ int controller(int fd){
             if (rfd != -1) {
                 Response resp = {0};
                 resp.type = RESP_SHUTDOWN;
-                write(rfd, &resp, sizeof(resp));
+                if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                    perror("[controller] write response");
+                }
                 close(rfd);
             }
             break;
@@ -70,7 +74,9 @@ int controller(int fd){
                         if (rfd != -1) {
                             Response resp = {0};
                             resp.type = RESP_DENIED;
-                            write(rfd, &resp, sizeof(resp));
+                            if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                                perror("[controller] write response");
+                            }
                             close(rfd);
                         }
                         break;
@@ -96,7 +102,9 @@ int controller(int fd){
                         Response resp = {0};
                         resp.type   = RESP_SUBMITTED;
                         resp.cmd_id = cmd_id;
-                        write(o, &resp, sizeof(resp));
+                        if (write(o, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                            perror("[controller] write response");
+                        }
                         close(o);
                     }
 
@@ -110,7 +118,9 @@ int controller(int fd){
                             Response resp = {0};
                             resp.type   = RESP_RUN;
                             resp.cmd_id = entry->msg.cmd_id;
-                            write(rfd, &resp, sizeof(resp));
+                            if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                                perror("[controller] write response");
+                            }
                             close(rfd);
                         }
                     }
@@ -132,8 +142,14 @@ int controller(int fd){
                         int ln = snprintf(log, sizeof(log),
                             "user=%d cmd=%d duration=%ldms\n",
                             msg.user_id, msg.cmd_id, ms);
-                        write(lfd, log, ln);
+                        if (write(lfd, log, ln) != ln) {
+                            perror("[controller] write log");
+                        }
                         close(lfd);
+                    }
+
+                    if (shutdown_requested){
+                        break;
                     }
 
                     /* slot livre,tenta despachar próximo */
@@ -146,7 +162,9 @@ int controller(int fd){
                             Response resp = {0};
                             resp.type   = RESP_RUN;
                             resp.cmd_id = entry->msg.cmd_id;
-                            write(rfd, &resp, sizeof(resp));
+                            if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                                perror("[controller] write response");
+                            }
                             close(rfd);
                         }
                     }
@@ -162,7 +180,9 @@ int controller(int fd){
                         Response resp = {0};
                         resp.type = RESP_STATUS;
                         scheduler_status(resp.body, sizeof(resp.body));
-                        write(rfd, &resp, sizeof(resp));
+                        if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                            perror("[controller] write response");
+                        }
                         close(rfd);
                     }
                     break;
@@ -177,7 +197,9 @@ int controller(int fd){
                         if (rfd != -1) {
                             Response resp = {0};
                             resp.type = RESP_DENIED;
-                            write(rfd, &resp, sizeof(resp));
+                            if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                                perror("[controller] write response");
+                            }
                             close(rfd);
                         }
                         break;
@@ -189,7 +211,9 @@ int controller(int fd){
                     if (o != -1) {
                         Response resp = {0};
                         resp.type = RESP_SHUTSUBM;
-                        write(o, &resp, sizeof(resp));
+                        if (write(o, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
+                            perror("[controller] write response");
+                        }
                         close(o);
                     }
                     shutdown_requested = 1;
@@ -221,7 +245,7 @@ int main(int argc, char* argv[]){
 
     const char *sched_policy = argv[2];
     if (strcmp(sched_policy, "fcfs") != 0 && strcmp(sched_policy, "rr") != 0) {
-        write(2, "[controller] error: sched-policies available: fcfs | rr\n", 37);
+        write(2, "[controller] error: sched-policies available: fcfs | rr\n", 57);
         _exit(1);
     }
 

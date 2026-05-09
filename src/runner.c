@@ -17,14 +17,13 @@ int mode_exec(int argc, char *argv[]) {
     char priv_fifo[RUNNER_FIFO_LEN];
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
     if (createFifo(priv_fifo) == -1 && errno != EEXIST) {
-        write(2, "[runner] error creating private FIFO\n", 37);
+        perror("[runner] error creating private FIFO\n");
         return 1;
     }
     
-    // abre fifo privado para receber resposta do controller
     int fd_priv = open(priv_fifo, O_RDWR);
     if (fd_priv < 0) {
-        write(2, "[runner] error opening private FIFO\n", 36);
+        perror("[runner] error opening private FIFO\n");
         unlink(priv_fifo);
         return 1;
     }
@@ -37,43 +36,65 @@ int mode_exec(int argc, char *argv[]) {
 
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
-        write(2, "[runner] error connecting to controller\n", 40);
+        perror("[runner] error connecting to controller\n");
         close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
-    write(fd_ctrl, &msg, sizeof(msg));
-    close(fd_ctrl);
+    ssize_t w = write(fd_ctrl, &msg, sizeof(msg));
+    if (w != (ssize_t)sizeof(msg)) {
+        perror("[runner] write to controller");
+        close(fd_ctrl);
+        unlink(priv_fifo);
+        close(fd_priv);
+        return 1;
+    }
 
     Response resp = {0};
-    read(fd_priv, &resp, sizeof(resp));
+    ssize_t r = read(fd_priv, &resp, sizeof(resp));
+    if (r != (ssize_t)sizeof(resp)){
+        perror("[runner] read from controller");
+        close(fd_priv);
+        unlink(priv_fifo);
+        close(fd_ctrl);
+        return 1;
+    }
 
     if (resp.type == RESP_DENIED) {
-        write(2, "[runner] command denied: controller is shutting down\n", 53);
+        write(1, "[runner] command denied: controller is shutting down\n", 53);
         close(fd_priv);
         unlink(priv_fifo);
-        return 1;
-    }
-    else if (resp.type == RESP_SHUTDOWN) {
-        write(2, "[runner] command cancelled: controller shut down\n", 49);
-        close(fd_priv);
-        unlink(priv_fifo);
+        close(fd_ctrl);
         return 1;
     }
 
-    // protocolo de dois passos: submitted->run
     if (resp.type == RESP_SUBMITTED) {
         char buf[64];
         int n = snprintf(buf, sizeof(buf), "[runner] command %d submitted\n", resp.cmd_id);
         write(1, buf, n);
 
-        read(fd_priv, &resp, sizeof(resp));
-        if (resp.type != RESP_RUN) {
+        ssize_t r1 = read(fd_priv, &resp, sizeof(resp));
+        if (r1 != (ssize_t)sizeof(resp)){
+            perror("[runner] read from controller");
+            close(fd_priv);
+            unlink(priv_fifo);
+            close(fd_ctrl);
+            return 1;
+        }
+        if (resp.type == RESP_SHUTDOWN) {
+            write(1, "[runner] command cancelled: controller shutdown\n", 49);
+            close(fd_priv);
+            unlink(priv_fifo);
+            close(fd_ctrl);
+            return 1;
+        }
+        else if (resp.type != RESP_RUN) {
             write(2, "[runner] unexpected response from controller\n", 45);
             close(fd_priv);
             unlink(priv_fifo);
+            close(fd_ctrl);
             return 1;
-        }
+        }        
     }
 
     close(fd_priv);
@@ -82,7 +103,6 @@ int mode_exec(int argc, char *argv[]) {
     int n = snprintf(buf, sizeof(buf), "[runner] executing command %d...\n", resp.cmd_id);
     write(1, buf, n);
 
-    // executa e notifica conclusão
     int tok_argc = 0;
     char **tokens = tokenize(argv[3], &tok_argc);
     if (tok_argc > 0) {
@@ -98,10 +118,12 @@ int mode_exec(int argc, char *argv[]) {
     done.user_id    = user_id;
     done.cmd_id     = resp.cmd_id;
 
-    fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
-    if (fd_ctrl >= 0) {
-        write(fd_ctrl, &done, sizeof(done));
-        close(fd_ctrl);
+    ssize_t w1 = write(fd_ctrl, &done, sizeof(done));
+    close(fd_ctrl);
+    if(w1 != (ssize_t)sizeof(done)){
+        perror("[runner] write to controller");
+        unlink(priv_fifo);
+        return 1;
     }
 
     n = snprintf(buf, sizeof(buf), "[runner] command %d finished\n", resp.cmd_id);
@@ -117,7 +139,7 @@ int mode_status(void) {
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
 
     if (createFifo(priv_fifo) == -1 && errno != EEXIST) {
-        write(2, "[runner] error creating private FIFO\n", 37);
+        perror("[runner] error creating private FIFO\n");
         return 1;
     }
 
@@ -127,22 +149,36 @@ int mode_status(void) {
 
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
-        write(2, "[runner] error connecting to controller\n", 40);
+        perror("[runner] error connecting to controller\n");
         unlink(priv_fifo);
         return 1;
     }
-    write(fd_ctrl, &msg, sizeof(msg));
-    close(fd_ctrl);
 
     int fd_priv = open(priv_fifo, O_RDONLY);
     if (fd_priv < 0) {
-        write(2, "[runner] error opening private FIFO\n", 36);
+        perror("[runner] error opening private FIFO\n");
+        close(fd_ctrl);
+        unlink(priv_fifo);
+        return 1;
+    }
+
+    ssize_t w = write(fd_ctrl, &msg, sizeof(msg));
+    close(fd_ctrl);
+    if (w != (ssize_t)sizeof(msg)) {
+        perror("[runner] write to controller");
+        close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
 
     Response resp = {0};
-    read(fd_priv, &resp, sizeof(Response));
+    ssize_t r = read(fd_priv, &resp, sizeof(resp));
+    if (r != (ssize_t)sizeof(resp)){
+        perror("[runner] read from controller");
+        close(fd_priv);
+        unlink(priv_fifo);
+        return 1;
+    }
     write(1, resp.body, strlen(resp.body));
 
     close(fd_priv);
@@ -156,7 +192,7 @@ int mode_shutdown(void) {
     snprintf(priv_fifo, RUNNER_FIFO_LEN, RUNNER_FIFO_FMT, my_pid);
 
     if (createFifo(priv_fifo) == -1 && errno != EEXIST) {
-        write(2, "[runner] error creating private FIFO\n", 37);
+        perror("[runner] error creating private FIFO\n");
         return 1;
     }
 
@@ -166,39 +202,54 @@ int mode_shutdown(void) {
 
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
-        write(2, "[runner] error connecting to controller\n", 40);
+        perror("[runner] error connecting to controller\n");
         unlink(priv_fifo);
         return 1;
     }
-    int w = write(fd_ctrl, &msg, sizeof(msg));
+
+    int fd_priv = open(priv_fifo, O_RDWR);
+    if (fd_priv < 0) {
+        write(2, "[runner] error opening private FIFO\n", 36);
+        close(fd_ctrl);
+        unlink(priv_fifo);
+        return 1;
+    }
+
+    ssize_t w = write(fd_ctrl, &msg, sizeof(msg));
     close(fd_ctrl);
-    if (w <= 0) {
-        write(2, "[runner] error writing to controller\n", 37);
+    if (w != (ssize_t)sizeof(msg)) {
+        perror("[runner] write to controller");
+        close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
 
     write(1, "[runner] sent shutdown notification\n", 36);
 
-    int fd_priv = open(priv_fifo, O_RDWR);
-    if (fd_priv < 0) {
-        write(2, "[runner] error opening private FIFO\n", 36);
+    Response resp = {0};
+    ssize_t r = read(fd_priv, &resp, sizeof(resp));
+    if (r != (ssize_t)sizeof(resp)){
+        perror("[runner] read from controller");
+        close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
 
-    Response resp = {0};
-    read(fd_priv, &resp, sizeof(resp));
-
     if (resp.type == RESP_DENIED) {
-        write(2, "[runner] shutdown refused: controller already shutting down\n", 60);
+        write(1, "[runner] shutdown refused: controller already shutting down\n", 60);
         close(fd_priv);
         unlink(priv_fifo);
         return 1;
     }
     else if (resp.type == RESP_SHUTSUBM) {
         write(1, "[runner] waiting for controller to shutdown...\n", 47);
-        read(fd_priv, &resp, sizeof(resp));
+        ssize_t r1 = read(fd_priv, &resp, sizeof(resp));
+        if (r1 != (ssize_t)sizeof(resp)){
+            perror("[runner] read from controller");
+            close(fd_priv);
+            unlink(priv_fifo);
+            return 1;
+        }
         if (resp.type != RESP_SHUTDOWN) {
             write(2, "[runner] unexpected response from controller\n", 45);
             close(fd_priv);

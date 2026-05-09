@@ -28,9 +28,6 @@ int execute_pipeline(Pipeline *p) {
         }
 
         if (pids[i] == 0) {
-            /* processo filho */
-
-            /* redireccionamento de input */
             if (p->commands[i].input != NULL) {
                 int fd = open(p->commands[i].input, O_RDONLY);
                 if (fd < 0) {
@@ -40,11 +37,8 @@ int execute_pipeline(Pipeline *p) {
                 dup2(fd, STDIN_FILENO);
                 close(fd);
             } else if (i > 0) {
-                /* lê do pipe anterior */
                 dup2(pipes[i - 1][0], STDIN_FILENO);
             }
-
-            /* redireccionamento de output */
             if (p->commands[i].output != NULL) {
                 int fd = open(p->commands[i].output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (fd < 0) {
@@ -54,11 +48,8 @@ int execute_pipeline(Pipeline *p) {
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
             } else if (i < num - 1) {
-                /* escreve para o pipe seguinte */
                 dup2(pipes[i][1], STDOUT_FILENO);
             }
-
-            /* redireccionamento de stderr */
             if (p->commands[i].error != NULL) {
                 int fd = open(p->commands[i].error, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (fd < 0) {
@@ -68,8 +59,6 @@ int execute_pipeline(Pipeline *p) {
                 dup2(fd, STDERR_FILENO);
                 close(fd);
             }
-
-            /* fecha todos os pipes no filho */
             for (int j = 0; j < num - 1; j++) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
@@ -80,14 +69,10 @@ int execute_pipeline(Pipeline *p) {
             exit(1);
         }
     }
-
-    /* processo pai - fecha todos os pipes */
     for (int i = 0; i < num - 1; i++) {
         close(pipes[i][0]);
         close(pipes[i][1]);
     }
-
-    /* espera por todos os filhos */
     for (int i = 0; i < num; i++) {
         waitpid(pids[i], NULL, 0);
     }
