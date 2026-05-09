@@ -10,7 +10,10 @@
 #include "executor/executor.h"
 
 int mode_exec(int argc, char *argv[]) {
-    (void)argc;   
+    if (argc < 2) {
+        write(2, "Usage: ./runner -e <user-id> \"<command> [args...]\"\n", 52);
+        return 1;
+    }
     pid_t my_pid  = getpid();
     int   user_id = atoi(argv[2]);
 
@@ -45,8 +48,8 @@ int mode_exec(int argc, char *argv[]) {
     if (w != (ssize_t)sizeof(msg)) {
         perror("[runner] write to controller");
         close(fd_ctrl);
-        unlink(priv_fifo);
         close(fd_priv);
+        unlink(priv_fifo);
         return 1;
     }
 
@@ -55,8 +58,8 @@ int mode_exec(int argc, char *argv[]) {
     if (r != (ssize_t)sizeof(resp)){
         perror("[runner] read from controller");
         close(fd_priv);
-        unlink(priv_fifo);
         close(fd_ctrl);
+        unlink(priv_fifo);
         return 1;
     }
 
@@ -266,7 +269,7 @@ int mode_shutdown(void) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2 && argc > 4) {
+    if (argc < 2) {
         write(2, "Usage: ./runner -e <user-id> \"<command> [args...]\"\n", 52);
         write(2, "       ./runner -c\n", 20);
         write(2, "       ./runner -s\n", 20);

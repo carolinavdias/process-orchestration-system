@@ -7,10 +7,8 @@
 #define RUNNER_FIFO_FMT "/tmp/runner_fifo_%d"
 #define RUNNER_FIFO_LEN  64
  
-#define MAX_CMD_LEN  256
-#define MAX_QUEUE    100
+#define MAX_CMD_LEN  2048
 #define MAX_ARGS     32
-#define MAX_ARG_LEN  64
 
 typedef enum {
     MSG_EXEC     = 1,
@@ -39,7 +37,7 @@ typedef enum {
 typedef struct {
     RespType type;
     int      cmd_id;
-    char     body[2048];
+    char     body[MAX_CMD_LEN];
 } Response;
 
 int  createFifo(const char *path);

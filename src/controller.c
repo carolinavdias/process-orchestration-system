@@ -234,30 +234,30 @@ int controller(int fd){
 int main(int argc, char* argv[]){
     if (argc != 3) {
         write(2, "Usage: ./controller <parallel-commands> <sched-policy>\n", 55);
-        _exit(1);
+        return 1;
     }
 
     int max_parallel = atoi(argv[1]);
     if (max_parallel <= 0) {
         write(2, "[controller] error: parallel-commands must be > 0\n", 50);
-        _exit(1);
+        return 1;
     }
 
     const char *sched_policy = argv[2];
     if (strcmp(sched_policy, "fcfs") != 0 && strcmp(sched_policy, "rr") != 0) {
         write(2, "[controller] error: sched-policies available: fcfs | rr\n", 57);
-        _exit(1);
+        return 1;
     }
 
     if (createFifo(CONTROLLER_FIFO) == -1 && errno != EEXIST) {
         perror("[controller] mkfifo");
-        _exit(1);
+        return 1;
     }
 
     int fd = openFifo(CONTROLLER_FIFO, O_RDWR | O_NONBLOCK);
     if (fd == -1) {
         perror("[controller] open fifo");
-        _exit(1);
+        return 1;
     }
 
     char buf[128];
