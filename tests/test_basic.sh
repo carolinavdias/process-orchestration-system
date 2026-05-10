@@ -129,7 +129,7 @@ echo -e "$SEP"
 if [ $FAIL -eq 0 ]; then
     echo -e ""
     echo -e "${BOLD}${GREEN}  ╔══════════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD}${GREEN}  ║   TODOS OS TESTES PASSARAM! ($PASS/$TOTAL)             ║${RESET}"
+    echo -e "${BOLD}${GREEN}  ║   TODOS OS TESTES PASSARAM! ($PASS/$TOTAL)          ║${RESET}"
     echo -e "${BOLD}${GREEN}  ╚══════════════════════════════════════════════╝${RESET}"
 else
     echo -e ""
