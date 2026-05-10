@@ -157,7 +157,7 @@ int mode_status(void) {
         return 1;
     }
 
-    int fd_priv = open(priv_fifo, O_RDONLY);
+    int fd_priv = open(priv_fifo, O_RDWR);
     if (fd_priv < 0) {
         perror("[runner] error opening private FIFO\n");
         close(fd_ctrl);
