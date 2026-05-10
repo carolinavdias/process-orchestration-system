@@ -46,7 +46,7 @@ void scheduler_init(int mp, const char *sp) {
     strncpy(policy, sp, sizeof(policy) - 1);
 }
 
-void scheduler_destroy(void) {
+void scheduler_destroy() {
     UserQueue *u = users;
     while (u != NULL) {
         UserQueue *next_user = u->next;
@@ -154,36 +154,15 @@ void scheduler_status(char *buf, size_t buf_len) {
     snprintf(buf + pos, buf_len - pos, "---\n");
 }
 
-int scheduler_empty(void) {
+int scheduler_empty() {
     UserQueue *u = users;
     while (u != NULL) {
         CmdNode *cur = u->head;
         while (cur != NULL) {
-            if (cur->state == CMD_RUNNING) return 0;
+            if (cur->state == CMD_RUNNING || cur->state == CMD_WAITING) return 0;
             cur = cur->next;
         }
         u = u->next;
     }
     return 1;
-}
-
-pid_t scheduler_pop_waiting(int *cmd_id) {
-    UserQueue *u = users;
-    while (u != NULL) {
-        CmdNode *cur = u->head;
-        while (cur != NULL) {
-            if (cur->state == CMD_WAITING) {
-                pid_t pid = cur->msg.runner_pid;
-                *cmd_id   = cur->msg.cmd_id;
-                CmdNode *removed = remove_cmd(u, cur->msg.cmd_id);
-                free(removed);
-                return pid;
-            }
-            cur = cur->next;
-        }
-        UserQueue *next_u = u->next;
-        free_user_if_empty(u);
-        u = next_u;
-    }
-    return -1;
 }

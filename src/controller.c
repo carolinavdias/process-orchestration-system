@@ -10,25 +10,6 @@
 #include "utils.h"
 #include "scheduler.h"
 
-static void notify_waiting_runners(void) {
-    int cmd_id;
-    pid_t pid;
-    while ((pid = scheduler_pop_waiting(&cmd_id)) != -1) {
-        char fifo[RUNNER_FIFO_LEN];
-        snprintf(fifo, sizeof(fifo), RUNNER_FIFO_FMT, pid);
-        int rfd = open(fifo, O_WRONLY);
-        if (rfd != -1) {
-            Response resp = {0};
-            resp.type   = RESP_SHUTDOWN;
-            resp.cmd_id = cmd_id;
-            if (write(rfd, &resp, sizeof(resp)) != (ssize_t)sizeof(resp)) {
-                perror("[controller] write response");
-            }
-            close(rfd);
-        }
-    }
-}
-
 int controller(int fd){
     write(1, "[controller] waiting for runners...\n", 36);
 
@@ -37,7 +18,6 @@ int controller(int fd){
 
     while(1){
         if (shutdown_requested && scheduler_empty()) {
-            notify_waiting_runners();
             char fifo[RUNNER_FIFO_LEN];
             snprintf(fifo, sizeof(fifo), RUNNER_FIFO_FMT, shutdown_requester);
             int rfd = open(fifo, O_WRONLY);

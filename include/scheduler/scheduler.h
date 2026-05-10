@@ -4,12 +4,11 @@
 #include "queue.h"
 
 void     scheduler_init(int max_parallel, const char *policy);
-void     scheduler_destroy(void);
+void     scheduler_destroy();
 int      scheduler_enqueue(Message *msg);
-CmdNode *scheduler_next(void);
+CmdNode *scheduler_next();
 long     scheduler_done(int cmd_id);
 void     scheduler_status(char *buf, size_t buf_len);
-int      scheduler_empty(void);
-pid_t    scheduler_pop_waiting(int *cmd_id); 
+int      scheduler_empty();
 
 #endif
