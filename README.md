@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🖥️ σяqυєѕтяαçãσ мυℓтι-яυηηєя
+# 🖥️ ᴏʀϙᴜᴇꜱᴛʀᴀçãᴏ ᴍᴜʟᴛɪ-ʀᴜɴɴᴇʀ
 
 **Sistemas Operativos · Universidade do Minho · 2025/2026**
 
