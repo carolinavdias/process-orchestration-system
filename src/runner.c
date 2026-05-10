@@ -35,13 +35,7 @@ int mode_exec(int argc, char *argv[]) {
     msg.type       = MSG_EXEC;
     msg.runner_pid = my_pid;
     msg.user_id    = user_id;
-
-    char cmd_buf[MAX_CMD_LEN] = {0};
-    for (int i = 3; i < argc; i++) {
-        if (i > 3) strncat(cmd_buf, " ", MAX_CMD_LEN - strlen(cmd_buf) - 1);
-        strncat(cmd_buf, argv[i], MAX_CMD_LEN - strlen(cmd_buf) - 1);
-    }
-    strncpy(msg.cmd, cmd_buf, MAX_CMD_LEN - 1);
+    strncpy(msg.cmd, argv[3], MAX_CMD_LEN - 1);
     
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
@@ -113,7 +107,7 @@ int mode_exec(int argc, char *argv[]) {
     write(1, buf, n);
 
     int tok_argc = 0;
-    char **tokens = tokenize(cmd_buf, &tok_argc);
+    char **tokens = tokenize(argv[3], &tok_argc);
     if (tok_argc > 0) {
         Pipeline *p = parse_pipeline(tokens, tok_argc);
         execute_pipeline(p);
@@ -179,6 +173,8 @@ int mode_status(void) {
         unlink(priv_fifo);
         return 1;
     }
+
+    write(1, "[runner] sent status request\n", 30);
 
     Response resp = {0};
     ssize_t r = read(fd_priv, &resp, sizeof(resp));
@@ -269,7 +265,7 @@ int mode_shutdown(void) {
 
     close(fd_priv);
 
-    write(1, "[runner] controller exited.\n", 28);
+    write(1, "[runner] controller exited\n", 28);
     unlink(priv_fifo);
     return 0;
 }
