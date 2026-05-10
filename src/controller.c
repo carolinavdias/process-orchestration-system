@@ -148,9 +148,6 @@ int controller(int fd){
                         close(lfd);
                     }
 
-                    if (shutdown_requested){
-                        break;
-                    }
 
                     /* slot livre,tenta despachar próximo */
                     CmdNode *entry = scheduler_next();
