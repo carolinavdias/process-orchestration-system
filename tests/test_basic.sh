@@ -47,7 +47,7 @@ start_controller() {
 echo -e ""
 echo -e "${BOLD}${BLUE}  ╔══════════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}${BLUE}  ║        TESTES BÁSICOS — SO Grupo 7           ║${RESET}"
-echo -e "${BOLD}${BLUE}  ║           SO — Grupo 7 · Maio 2026           ║${RESET}"
+echo -e "${BOLD}${BLUE}  ║                   Maio 2026                  ║${RESET}"
 echo -e "${BOLD}${BLUE}  ╚══════════════════════════════════════════════╝${RESET}"
 echo -e ""
 

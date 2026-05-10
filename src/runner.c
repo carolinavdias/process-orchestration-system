@@ -10,7 +10,7 @@
 #include "executor/executor.h"
 
 int mode_exec(int argc, char *argv[]) {
-    if (argc < 2) {
+    if (argc < 4) {
         write(2, "Usage: ./runner -e <user-id> \"<command> [args...]\"\n", 52);
         return 1;
     }
@@ -35,8 +35,14 @@ int mode_exec(int argc, char *argv[]) {
     msg.type       = MSG_EXEC;
     msg.runner_pid = my_pid;
     msg.user_id    = user_id;
-    strncpy(msg.cmd, argv[3], MAX_CMD_LEN - 1);
 
+    char cmd_buf[MAX_CMD_LEN] = {0};
+    for (int i = 3; i < argc; i++) {
+        if (i > 3) strncat(cmd_buf, " ", MAX_CMD_LEN - strlen(cmd_buf) - 1);
+        strncat(cmd_buf, argv[i], MAX_CMD_LEN - strlen(cmd_buf) - 1);
+    }
+    strncpy(msg.cmd, cmd_buf, MAX_CMD_LEN - 1);
+    
     int fd_ctrl = openFifo(CONTROLLER_FIFO, O_WRONLY);
     if (fd_ctrl < 0) {
         perror("[runner] error connecting to controller\n");
@@ -107,7 +113,7 @@ int mode_exec(int argc, char *argv[]) {
     write(1, buf, n);
 
     int tok_argc = 0;
-    char **tokens = tokenize(argv[3], &tok_argc);
+    char **tokens = tokenize(cmd_buf, &tok_argc);
     if (tok_argc > 0) {
         Pipeline *p = parse_pipeline(tokens, tok_argc);
         execute_pipeline(p);

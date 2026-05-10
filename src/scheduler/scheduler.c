@@ -113,8 +113,9 @@ long scheduler_done(int cmd_id) {
             }
             node = node->next;
         }
+        UserQueue *next_u = u->next;
         free_user_if_empty(u);
-        u = u->next;
+        u = next_u;
     }
     return -1;
 }
@@ -180,8 +181,9 @@ pid_t scheduler_pop_waiting(int *cmd_id) {
             }
             cur = cur->next;
         }
+        UserQueue *next_u = u->next;
         free_user_if_empty(u);
-        u = u->next;
+        u = next_u;
     }
     return -1;
 }
