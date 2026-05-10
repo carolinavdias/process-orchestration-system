@@ -28,7 +28,7 @@
 
 ```bash
 make        # compila controller, runner e testes
-make clean  # remove binários e objectos
+make clean  # remove binários e objetos
 ```
 
 ---
@@ -67,10 +67,10 @@ make clean  # remove binários e objectos
 ## 🧪 Testes
 
 ```bash
-./tests/test_basic.sh        # testes de funcionamento (14/14)
+./tests/test_basic.sh         # testes de funcionamento (14/14)
 ./bin/test_parser             # testes do módulo de parsing
 ./bin/test_executor           # testes do módulo de execução
-./tests/test_scheduling.sh   # avaliação de políticas (~40s)
+./tests/test_scheduling.sh    # avaliação de políticas (~40s)
 ```
 
 ---
@@ -82,15 +82,29 @@ make clean  # remove binários e objectos
 ├── src/
 │   ├── controller.c          # servidor: receção, escalonamento, log
 │   ├── runner.c              # cliente: submissão, execução, shutdown
+│   ├── utils.c               # funções utilitárias partilhadas
 │   ├── executor/
-│   │   ├── parser.c          # parsing de pipelines e operadores
-│   │   └── executor.c        # execução com fork, execvp e dup2
+│   │   ├── executor.c        # execução com fork, execvp e dup2
+│   │   └── parser.c          # parsing de pipelines e operadores
 │   └── scheduler/
-│       ├── scheduler.c       # lógica central de escalonamento
 │       ├── policy.c          # políticas FCFS e Round Robin
-│       └── queue.c           # filas por utilizador
-├── include/                  # headers
-├── tests/                    # scripts e programas de teste
+│       ├── queue.c           # filas por utilizador
+│       └── scheduler.c       # lógica central de escalonamento
+├── include/
+│   ├── executor/
+│   │   ├── executor.h
+│   │   └── parser.h
+│   ├── scheduler/
+│   │   ├── policy.h
+│   │   ├── queue.h
+│   │   └── scheduler.h
+│   └── utils.h
+├── tests/
+│   ├── test_basic.sh         # testes de funcionamento
+│   ├── test_scheduling.sh    # avaliação de políticas
+│   ├── test_executor.c       # testes do módulo de execução
+│   └── test_parser.c         # testes do módulo de parsing
+├── obj/                      # ficheiros objeto gerados pelo make
 ├── logs/                     # registo persistente de comandos
 └── Makefile
 ```
