@@ -1,132 +1,141 @@
 <div align="center">
 
-# 🖥️ ᴏʀϙᴜᴇꜱᴛʀᴀçãᴏ ᴍᴜʟᴛɪ-ʀᴜɴɴᴇʀ
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/icon-dark.svg">
+  <img src="assets/icon-light.svg" height="110" alt="">
+</picture>
 
-**Sistemas Operativos · Universidade do Minho · 2025/2026**
+<h1>𝙋𝙧𝙤𝙘𝙚𝙨𝙨 𝙊𝙧𝙘𝙝𝙚𝙨𝙩𝙧𝙖𝙩𝙞𝙤𝙣 𝙎𝙮𝙨𝙩𝙚𝙢</h1>
+<h3>Multi-Runner Command Execution over Named Pipes</h3>
 
-![Language](https://img.shields.io/badge/linguagem-C-blue?style=flat-square)
-![Platform](https://img.shields.io/badge/plataforma-Linux-orange?style=flat-square)
-![IPC](https://img.shields.io/badge/IPC-Named%20Pipes-green?style=flat-square)
+![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![Bash](https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white)
 
-*Orquestrador de comandos bash multi-utilizador com named pipes, pipelines e escalonamento configurável.*
+*Academic project developed for **Sistemas Operativos** @ University of Minho*
 
 </div>
 
 ---
 
-## 👥 Grupo 7
+## 🖥️ About
 
-| Nome | Número |
-|---|---|
-| Ana Patrícia da Silva Machado | a111661 |
-| Carolina Francisca Vieira Dias | a111179 |
-| Gonçalo Nuno Gomes Pombal | a110681 |
+For Operating Systems we had to build, in C and using system calls, a small system that runs bash commands for several users at the same time. It has two programs: the `controller`, which receives every request and decides what runs next, and the `runner`, which each user launches to send a command, check what's going on or shut everything down.
+
+The catch? They can only talk to each other through **named pipes**. No sockets, no shared memory, just FIFOs. That made us think a lot about who opens what, when, and who ends up stuck waiting for whom.
 
 ---
 
-## ⚙️ Compilar
+## 🔁 How it works
 
-```bash
-make        # compila controller, runner e testes
-make clean  # remove binários e objetos
 ```
+   runner (user 1) ─┐
+   runner (user 2) ─┼──►  /tmp/controller_fifo  ──►  controller
+   runner (user 3) ─┘                                  │  queue + policy
+         ▲                                             │
+         └────────────  /tmp/runner_fifo_<pid>  ◄──────┘
+```
+
+Every runner sends its request through the controller's FIFO and opens its own private one, named after its PID, to get the answer back. A new command goes to the queue first (`RESP_SUBMITTED`) and only starts when the controller gives the green light (`RESP_RUN`). Then the runner forks, runs it with `execvp` and tells the controller it's done, so the next one in line can go.
 
 ---
 
-## 🚀 Utilização
+## ⚡ What it does
 
-**1. Arrancar o controller**
+- runs commands with pipelines and redirection (`|`, `>`, `2>`, `<`)
+- lets you choose how many commands run at the same time
+- schedules with **FCFS** or **Round Robin**, with one queue per user
+- shows what's running and what's still waiting (`-c`)
+- keeps a log of every finished command with its user, id and duration
+- shuts down gracefully, only after everything that was running finishes
+
+---
+
+## 🧩 My part
+
+I was in charge of the extra features: the redirection and pipe operators, the scheduling policies, the test scripts and the Makefile. I also wrote a good chunk of the report.
+
+---
+
+## 😵 The tricky part
+
+Honestly, the hardest part wasn't writing the features, it was getting the processes to wait for each other the right way. Making sure a runner doesn't start before its turn, opening the global FIFO so it doesn't block when no runner is around, and making the controller wait for everything to finish before closing took way more time than the features themselves.
+
+My favourite bug: the status mode froze forever because a FIFO was opened with `O_RDONLY`, which blocks until someone opens the other end... and that someone was waiting for us. Switching to `O_RDWR` fixed it.
+
+---
+
+## 🚀 How to Run
+
 ```bash
-./bin/controller <parallel-commands> <sched-policy>
+# Compile
+make
 
-./bin/controller 1 fcfs   # sequencial, FCFS
-./bin/controller 2 rr     # 2 slots paralelos, Round Robin
-```
+# Start the controller: <parallel-commands> <policy>
+./bin/controller 1 fcfs     # one at a time, FCFS
+./bin/controller 2 rr       # two at a time, Round Robin
 
-**2. Submeter um comando**
-```bash
-./bin/runner -e <user-id> "<comando>"
-
+# In another terminal, send some commands
 ./bin/runner -e 1 "echo hello"
 ./bin/runner -e 1 "grep root /etc/passwd | wc -l"
-./bin/runner -e 2 "ls -la > /tmp/saida.txt"
-```
+./bin/runner -e 2 "ls -la > /tmp/out.txt"
 
-**3. Consultar estado**
-```bash
+# See what's running and what's waiting
 ./bin/runner -c
-```
 
-**4. Terminar o controller**
-```bash
+# Shut it down
 ./bin/runner -s
 ```
 
 ---
 
-## 🧪 Testes
+## 🧪 Tests
 
 ```bash
-./tests/test_basic.sh         # testes de funcionamento (14/14)
-./bin/test_parser             # testes do módulo de parsing
-./bin/test_executor           # testes do módulo de execução
-./tests/test_scheduling.sh    # avaliação de políticas (~40s)
+./tests/test_basic.sh         # functional tests (14/14)
+./bin/test_parser             # parser module
+./bin/test_executor           # executor module
+./tests/test_scheduling.sh    # FCFS vs RR with 1 and 2 slots (about 40s)
 ```
+
+The scheduling test saves its results in `logs/scheduling_results.txt`.
 
 ---
 
-## 📁 Estrutura
+## 🗂️ Project Structure
 
 ```
 .
 ├── src/
-│   ├── controller.c          # servidor: receção, escalonamento, log
-│   ├── runner.c              # cliente: submissão, execução, shutdown
-│   ├── utils.c               # funções utilitárias partilhadas
+│   ├── controller.c         # server: requests, scheduling, log
+│   ├── runner.c             # client: submit, execute, status, shutdown
+│   ├── utils.c              # shared helpers
 │   ├── executor/
-│   │   ├── executor.c        # execução com fork, execvp e dup2
-│   │   └── parser.c          # parsing de pipelines e operadores
+│   │   ├── parser.c         # pipelines and redirection operators
+│   │   └── executor.c       # fork, execvp and dup2
 │   └── scheduler/
-│       ├── policy.c          # políticas FCFS e Round Robin
-│       ├── queue.c           # filas por utilizador
-│       └── scheduler.c       # lógica central de escalonamento
-├── include/
-│   ├── executor/
-│   │   ├── executor.h
-│   │   └── parser.h
-│   ├── scheduler/
-│   │   ├── policy.h
-│   │   ├── queue.h
-│   │   └── scheduler.h
-│   └── utils.h
-├── tests/
-│   ├── test_basic.sh         # testes de funcionamento
-│   ├── test_scheduling.sh    # avaliação de políticas
-│   ├── test_executor.c       # testes do módulo de execução
-│   └── test_parser.c         # testes do módulo de parsing
-├── obj/                      # ficheiros objeto gerados pelo make
-├── logs/                     # registo persistente de comandos
+│       ├── scheduler.c      # core scheduling logic
+│       ├── policy.c         # FCFS and Round Robin
+│       └── queue.c          # one queue per user
+├── include/                 # header files
+├── tests/                   # test scripts and programs
+├── logs/                    # command log (created at runtime)
+├── Relatorio_SO_Grupo07.pdf # project report (in Portuguese)
 └── Makefile
 ```
 
 ---
 
-## ✅ Funcionalidades
+## 🛠️ Tech Stack
 
-| Funcionalidade | Estado |
-|---|---|
-| Modos `-e`, `-c`, `-s` | ✅ |
-| Política FCFS | ✅ |
-| Política Round Robin | ✅ |
-| Execução paralela configurável | ✅ |
-| Operadores `\|` `>` `2>` `<` | ✅ |
-| Registo persistente em `logs/commands.log` | ✅ |
-| Shutdown gracioso | ✅ |
+`C` · `Named Pipes (FIFOs)` · `fork / execvp / waitpid` · `dup2` · `FCFS` · `Round Robin` · `Make` · `Bash`
 
 ---
 
-<div align="center">
+## 👩‍💻 Authors
 
-*Desenvolvido para a UC de Sistemas Operativos - LEI, Universidade do Minho · Grupo 7 · 2025/2026*
+**Carolina Dias** · [@carolinavdias](https://github.com/carolinavdias)  
+**Ana Patrícia Machado** · [@apatriciamachado](https://github.com/apatriciamachado)  
+**Gonçalo Pombal** · [@pombas16](https://github.com/pombas16)
 
-</div>
+<p align="center"><i>built with way too many terminal windows open at the same time</i></p>
