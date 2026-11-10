@@ -5,7 +5,7 @@
   <img src="assets/icon-light.svg" height="110" alt="">
 </picture>
 
-<h1>𝙋𝙧𝙤𝙘𝙚𝙨𝙨 𝙊𝙧𝙘𝙝𝙚𝙨𝙩𝙧𝙖𝙩𝙞𝙤𝙣 𝙎𝙮𝙨𝙩𝙚𝙢</h1>
+<h1>𝙿𝚛𝚘𝚌𝚎𝚜𝚜 𝙾𝚛𝚌𝚑𝚎𝚜𝚝𝚛𝚊𝚝𝚒𝚘𝚗 𝚂𝚢𝚜𝚝𝚎𝚖</h1>
 <h3>Multi-Runner Command Execution over Named Pipes</h3>
 
 ![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
